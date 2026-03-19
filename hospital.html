@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>香港急症室實時輪候時間</title>
+    
+    <style>
+        :root { --primary: #2c3e50; --accent: #e74c3c; --bg: #f8f9fa; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .dashboard { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: var(--primary); text-align: center; border-bottom: 3px solid var(--accent); padding-bottom: 10px; }
+        .update-info { text-align: right; font-size: 0.9em; color: #666; margin: 10px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: var(--primary); color: white; padding: 12px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 0.95em; }
+        tr:hover { background: #f1f1f1; }
+        .table-container { overflow-x: auto; }
+        .warning { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <h1>🏥 急症室分流輪候時間</h1>
+        <p id="updateTime" class="update-info">載入中...</p>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>醫院</th>
+                        <th>第一類 (危急)</th>
+                        <th>第二類 (緊急)</th>
+                        <th>第三類 (次緊急 - 50%)</th>
+                        <th>第四/五類 (非緊急 - 95%)</th>
+                    </tr>
+                </thead>
+                <tbody id="hospitalData">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // API 網址：使用你提供的 JSON 數據源
+        const apiURL = "https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json";
+
+        async function fetchData() {
+            try {
+                const response = await fetch(apiURL);
+                const data = await response.json();
+                renderTable(data);
+            } catch (error) {
+                console.error("無法獲取數據:", error);
+                document.getElementById('updateTime').innerText = "數據更新失敗，請檢查網絡連接。";
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('hospitalData');
+            const updateTimeEl = document.getElementById('updateTime');
+            
+            updateTimeEl.innerText = `最後更新時間：${data.updateTime}`;
+            tbody.innerHTML = ""; 
+
+            data.waitTime.forEach(hosp => {
+                const row = document.createElement('tr');
+                
+                // 邏輯判斷：如果 95% 指標超過 5 小時，文字變紅色
+                const isLongWait = hosp.t45p95.includes('小時') && parseFloat(hosp.t45p95) >= 5;
+                const t45Class = isLongWait ? 'warning' : '';
+
+                row.innerHTML = `
+                    <td><strong>${hosp.hospName}</strong></td>
+                    <td>${hosp.t1wt}</td>
+                    <td>${hosp.t2wt}</td>
+                    <td>${hosp.t3p50}</td>
+                    <td class="${t45Class}">${hosp.t45p95}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        fetchData();
+        // 每 15 分鐘自動刷新
+        setInterval(fetchData, 900000);
+    </script>
+
+</body> </html>
