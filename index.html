@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>香港急症室實時輪候時間</title>
+    <style>
+        :root { --primary: #2c3e50; --accent: #e74c3c; --bg: #f8f9fa; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .dashboard { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { color: var(--primary); text-align: center; border-bottom: 3px solid var(--accent); padding-bottom: 10px; }
+        .update-info { text-align: right; font-size: 0.9em; color: #666; margin: 10px 0; }
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { background: var(--primary); color: white; padding: 12px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        .warning { color: var(--accent); font-weight: bold; }
+        .loading { text-align: center; padding: 40px; color: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <h1>🏥 急症室分流輪候時間</h1>
+        <p id="updateTime" class="update-info">正在獲取實時數據...</p>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>醫院</th>
+                        <th>第一類 (危急)</th>
+                        <th>第二類 (緊急)</th>
+                        <th>第三類 (次緊急-50%)</th>
+                        <th>第四/五類 (非緊急-95%)</th>
+                    </tr>
+                </thead>
+                <tbody id="hospitalData">
+                    <tr><td colspan="5" class="loading">正在嘗試連接醫管局伺服器...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 使用一個不同的轉接服務，這個通常對 GitHub Pages 支援更好
+        const apiURL = "https://api.allorigins.win/get?url=" + encodeURIComponent("https://www.ha.org.hk/opendata/aewaitingtime/aewaitingtime-tc.json");
+
+        async function loadData() {
+            try {
+                const response = await fetch(apiURL);
+                const result = await response.json();
+                // AllOrigins 會把原本的 JSON 字串放在 .contents 裡面，所以要解析二次
+                const data = JSON.parse(result.contents);
+                renderTable(data);
+            } catch (error) {
+                console.error(error);
+                document.getElementById('updateTime').innerText = "數據抓取失敗，醫管局伺服器繁忙中。";
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('hospitalData');
+            document.getElementById('updateTime').innerText = `最後更新時間：${data.updateTime}`;
+            tbody.innerHTML = ""; 
+
+            data.waitTime.forEach(hosp => {
+                const row = document.createElement('tr');
+                const isLongWait = hosp.t45p95.includes('小時') && parseFloat(hosp.t45p95) >= 4;
+                row.innerHTML = `
+                    <td><strong>${hosp.hospName}</strong></td>
+                    <td>${hosp.t1wt}</td>
+                    <td>${hosp.t2wt}</td>
+                    <td>${hosp.t3p50}</td>
+                    <td class="${isLongWait ? 'warning' : ''}">${hosp.t45p95}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
